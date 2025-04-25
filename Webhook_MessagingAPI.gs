@@ -9,6 +9,9 @@ function doPost(e) {
   // ดึงข้อมูลจาก JSON ที่ได้รับ
   var alertTitle = data.title; // Template alert อยู่ใน
 
+  // เช็คจำนวนข้อความที่ใช้ไปแล้ว
+  checkMessageLimit();
+
   // สร้างข้อความที่ต้องการส่งไปยัง Line
   var message = alertTitle;
   
@@ -23,7 +26,7 @@ function doPost(e) {
 
 function sendMessageToLine(message) {
   var url = "https://api.line.me/v2/bot/message/push";
-  var channelAccessToken = "GVO+IboLn7v0XjBOAmrknGjf+6mSDR5d1oyoCkY+Li1b0AxYnv4hVg81boyQJF9W8Eoa+ztniy+sXAj+yGQl7rkurfeazPczP3IjOf++tsJ2V2LsAIYTPSV806LY9ZNil55OFgLo7FrzQVaCvSkrlgdB04t89/1O/w1cDnyilFU=";
+  var channelAccessToken = "yM/mb6oGj0Dh00GRMSRKk8gRSlPyZcQrbLqFWGKSQPuQPhiGHCc4yaKtHMyY0e/CAj91wyMbw8E6vKwpijALs4iOPphfcjWc4QzjZjXVrkDro+bjc9ujdka+4TW70BtaMhKsdJuTQp62ojmaWh54sAdB04t89/1O/w1cDnyilFU=";
 
   var headers = {
     "Content-Type": "application/json",
@@ -31,7 +34,7 @@ function sendMessageToLine(message) {
   };
 
   var payload = {
-    "to": "Cef71f19dbc128ee6e41d4c9c830b83c6",  //Group: MPE_Group_Manhole_Alert
+    "to": "Cd3003d0914ed172f450a3bc0b29b5ebf",
     "messages": [
       {
         "type": "text",
@@ -47,4 +50,32 @@ function sendMessageToLine(message) {
   };
 
   UrlFetchApp.fetch(url, options);
+}
+
+// เช็คจำนวนข้อความที่ส่งไปแล้ว
+function checkMessageLimit() {
+  var url = "https://api.line.me/v2/bot/message/quota/consumption";
+  var headers = {
+    "Authorization": "Bearer " + "yM/mb6oGj0Dh00GRMSRKk8gRSlPyZcQrbLqFWGKSQPuQPhiGHCc4yaKtHMyY0e/CAj91wyMbw8E6vKwpijALs4iOPphfcjWc4QzjZjXVrkDro+bjc9ujdka+4TW70BtaMhKsdJuTQp62ojmaWh54sAdB04t89/1O/w1cDnyilFU="
+  };
+
+  var response = UrlFetchApp.fetch(url, { "headers": headers });
+  var data = JSON.parse(response.getContentText());
+  var totalUsage = data.totalUsage; // จำนวนข้อความที่ใช้ไปแล้ว
+
+  var groupUrl = "https://api.line.me/v2/bot/group/Cd3003d0914ed172f450a3bc0b29b5ebf/members/count";
+  var groupResponse = UrlFetchApp.fetch(groupUrl, { "headers": headers });
+  var groupData = JSON.parse(groupResponse.getContentText());
+  var member = groupData.count; // จำนวนสมาชิกไม่รวม LIne OA
+
+  if (member > 0) { // ป้องกันหารด้วยศูนย์
+    var maxMessages = 300 / member; // ขีดจำกัดสูงสุด (300 ข้อความ/สมาชิก/เดือน)
+    var totalMessages = totalUsage / member; // ตรวจสอบว่าตอนนี้ใช้ไปกี่ข้อความเมื่อนับสมาชิก
+
+    // เช็คว่าจำนวนข้อความใกล้ถึงขีดจำกัด
+    if (totalMessages === maxMessages - 1) {
+      sendMessageToLine("Warning: Maximum message limit is almost reached."); 
+    }
+  }
+// โค้ดนี่จะใช้ได้สมบูรณ์ถ้า 300/จำนวนสมาชิก ได้เลขจำนวนเต็มไม่มีทศนิยม และ Add Bot เข้ากลุ่มหลังสมาชิกคนอื่นๆ(เพื่อป้องกัน Bot Alert ก่อนสมาชิกครบ) และต้องปิด Auto Respond อื่นๆนกเหนือจาก API
 }
